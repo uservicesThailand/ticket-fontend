@@ -10,6 +10,7 @@ import fs from "fs";
 import jwt from "jsonwebtoken";
 import * as line from "@line/bot-sdk";
 import dotenv from "dotenv";
+
 dotenv.config();
 
 const app = express();
@@ -35,7 +36,7 @@ const lineClient = LINE_ENABLED
 const LINE_CATEGORY_MAP = {
     PC: process.env.LINE_TOKEN_CHAOWALIT,//พี่ริท
     PRN: process.env.LINE_TOKEN_CHAOWALIT,
-    NET: process.env.LINE_TOKEN_CHAOWALIT,
+    NET: process.env.LINE_TOKEN_PICHEAD,
     FORM: process.env.LINE_TOKEN_CHAOWALIT,
     SYS: process.env.LINE_TOKEN_PIMLAPAS, //พิมพ์
     ERP: process.env.LINE_TOKEN_CHAOWALIT,
@@ -233,6 +234,7 @@ const allowedOrigins = [
     "http://192.168.102.106:5173",
     "http://192.168.112.49:5173",
     "http://192.168.102.106:5173",
+    "http://192.168.102.103:5173"
     // ใส่ origin โปรดักชันจริงด้วย เช่น "https://jobsheet.u-services.co.th"
 ];
 
@@ -247,7 +249,6 @@ app.use(
         allowedHeaders: ["Content-Type", "Authorization"],
     })
 );
-
 app.use(express.json());
 
 /** ---------------- MySQL Pool ---------------- */
@@ -350,9 +351,102 @@ app.use((req, _res, next) => {
     });
     next();
 });
+/* ----------------- */
+// ---------- generateUsername: ใช้ pool + ใส่ backtick ชื่อตาราง ----------
+async function generateUsername(branch, department) {
+    const b = String(branch || '').toUpperCase().trim();
+    const d = String(department || '').toUpperCase().trim();
+    const prefix = `TK${b}${d}`;
 
+    const [rows] = await pool.query(
+        `SELECT user_username
+       FROM ticket_user
+      WHERE user_username LIKE ?
+      ORDER BY user_username DESC
+      LIMIT 1`,
+        [`${prefix}%`]
+    );
+
+    let nextNumber = 1;
+    if (rows.length > 0) {
+        const last = rows[0].user_username;                 // e.g. TKURYQA007
+        const lastNum = parseInt(last.slice(prefix.length), 10) || 0;
+        nextNumber = lastNum + 1;
+    }
+    return `${prefix}${String(nextNumber).padStart(3, '0')}`;
+}
+
+// ---------- addUser: ใช้ pool + ใส่ backtick ชื่อตาราง ----------
+async function addUser(userData) {
+    const {
+        first_name,
+        last_name,
+        branch,
+        department,
+        email,
+        phone,
+        laptop_no,
+        avatar_url,
+        status,
+        reset,
+    } = userData || {};
+
+    if (!first_name || !last_name || !branch || !department) {
+        throw new Error('missing required fields: first_name, last_name, branch, department');
+    }
+
+    const user_username = await generateUsername(branch, department);
+
+    const hash = await bcrypt.hash('1234', 10);
+    const user_status = typeof status === 'number' ? status : 1;
+    const user_reset = typeof reset === 'number' ? reset : 0;
+
+    const [result] = await pool.query(
+        `INSERT INTO ticket_user
+      (user_username,
+       user_password,
+       user_first_name,
+       user_last_name,
+       user_branch,
+       user_department,
+       user_email,
+       user_phone,
+       user_laptop_no,
+       user_avatar_url,
+       user_status,
+       user_reset)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+            user_username,
+            hash,
+            first_name,
+            last_name,
+            branch,
+            department,
+            email || null,
+            phone || null,
+            laptop_no || null,
+            avatar_url || null,
+            user_status,
+            user_reset
+        ]
+    );
+
+    return { user_id: result.insertId, user_username };
+}
+/* ----------------- */
 app.get("/api/ping", (req, res) => {
     res.json({ ok: true, hasAuth: !!(req.headers.authorization || "").startsWith("Bearer ") });
+});
+
+app.post("/api/users", async (req, res) => {
+    try {
+        const user = await addUser(req.body);
+        res.status(201).json({ success: true, ...user });
+    } catch (err) {
+        console.error('Add user error:', err);
+        res.status(500).json({ success: false, error: 'Database error' });
+    }
 });
 
 app.get("/api/me", requireAuthJWT, (req, res) => {
@@ -395,7 +489,6 @@ async function generateTicketCode(pool, branch) {
 }
 
 /** ---------------- Routes ---------------- */
-
 // POST /api/login  { username, password, branch }
 app.post("/api/login", async (req, res) => {
     const { username, password, branch } = req.body || {};
@@ -404,8 +497,8 @@ app.post("/api/login", async (req, res) => {
     }
     try {
         const [rows] = await pool.query(
-            `SELECT * FROM u_user 
-       WHERE username = ? 
+            `SELECT * FROM ticket_user 
+       WHERE user_username = ? 
          AND user_status = 1
        LIMIT 1`,
             [username]
@@ -414,7 +507,7 @@ app.post("/api/login", async (req, res) => {
             return res.status(401).json({ error: "ไม่พบบัญชีผู้ใช้" });
         }
         const user = rows[0];
-        const storedHash = user.password || "";
+        const storedHash = user.user_password || "";
 
         let isMatch = false;
         if (storedHash.startsWith("$2")) {
@@ -427,7 +520,7 @@ app.post("/api/login", async (req, res) => {
 
         // update last login (best-effort)
         try {
-            await pool.query("UPDATE u_user SET u_last_login = NOW() WHERE user_key = ?", [user.user_key]);
+            await pool.query("UPDATE ticket_user SET user_last_login = NOW() WHERE user_id = ?", [user.user_key]);
         } catch (e) {
             console.error("Update last login error:", e);
         }
@@ -437,20 +530,18 @@ app.post("/api/login", async (req, res) => {
             message: "เข้าสู่ระบบสำเร็จ",
             token,
             user: {
-                user_key: user.user_key,
-                name: user.name,
-                lastname: user.lastname,
-                username: user.username,
-                user_class: user.user_class,
-                user_type: user.user_type,
-                branch_log: user.branch_log,
+                user_key: user.user_id,
+                name: user.user_first_name,
+                lastname: user.user_last_name,
+                username: user.user_username,
+                branch_log: user.user_branch,
                 branch_current: branch,
-                user_photo: user.user_photo,
-                u_role: user.u_role,
-                u_department: user.u_department,
-                user_language: user.user_language,
-                u_email: user.u_email,
-                u_tel: user.u_tel,
+                user_photo: user.user_avatar_url,
+                u_role: user.user_role,
+                u_department: user.user_department,
+                user_language: 'TH',
+                u_email: user.user_email,
+                u_tel: user.user_phone,
             },
         });
     } catch (err) {
@@ -876,12 +967,11 @@ app.get("/api/issues/:id", requireAuthJWT, async (req, res) => {
         };
 
         return res.json(data);
+
     } catch (err) {
         console.error("GET /api/issues/:id error:", err);
         return res.status(500).json({ message: "Server error" });
     }
 });
-
-
 
 app.listen(4000, () => console.log("Server running on port 4000"));

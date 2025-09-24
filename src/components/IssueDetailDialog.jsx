@@ -56,6 +56,14 @@ export default function IssueDetailDialog({
         CANCELLED: "default",
     };
 
+    const statusLabel = {
+        NEW: "รอตรวจสอบ",
+        IN_PROGRESS: "กำลังดำเนินการ",
+        WAITING: "รออะไหล่/ผู้รับผิดชอบ",
+        DONE: "ดำเนินการเสร็จแล้ว",
+        CANCELLED: "ยกเลิก",
+    };
+
     const statusIcon = (st) => {
         switch (st) {
             case "NEW": return <Play size={14} />;
@@ -143,14 +151,13 @@ export default function IssueDetailDialog({
                             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                                 <Chip label={`หมวด: ${data.category || "-"}`} color="primary" variant="outlined" />
                                 <Chip
-                                    label={`สถานะ: ${data.status || "-"}`}
+                                    label={`สถานะ: ${statusLabel[data.status] || data.status || "-"}`}
                                     color={statusColor[data.status] || "default"}
                                     variant={data.status === "NEW" ? "outlined" : "filled"}
                                 />
                                 {data.assignee && <Chip label={`ผู้รับผิดชอบ: ${data.assignee}`} color="secondary" />}
                             </Stack>
                         </Box>
-
                         <Divider />
 
                         {/* ===== ผู้แจ้ง & ช่องทางติดต่อ + รายละเอียด ===== */}
@@ -269,7 +276,7 @@ export default function IssueDetailDialog({
 
                                                         <TimelineContent sx={{ py: 0.5 }}>
                                                             <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                                                {log.from_status || "-"} → {log.to_status}
+                                                                {statusLabel[log.from_status] || "ยื่นคำขอ"} ------- {statusLabel[log.to_status] || "-"}
                                                             </Typography>
                                                             <Typography variant="body2" color="text.secondary">
                                                                 {log.changed_by ? `โดย ${log.changed_by}` : "โดย ระบบ"}

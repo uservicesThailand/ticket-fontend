@@ -9,8 +9,9 @@ import {
     Tabs, Tab
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
+import AddUserDialog from "../components/AddUserDialog.jsx";
 import {
-    Plus, Search, ClipboardList, Home, RefreshCw, Pencil, CheckCheck, ShieldCheck
+    UserPlus, Plus, Search, ClipboardList, Home, RefreshCw, Pencil, CheckCheck, ShieldCheck
 } from "lucide-react";
 import dayjs from "dayjs";
 import "dayjs/locale/th";
@@ -46,6 +47,7 @@ function StatusChip({ value }) {
 }
 
 export default function Ticket() {
+    const [addUserOpen, setAddUserOpen] = useState(false);
     const [statusTab, setStatusTab] = useState("ALL");
     const API_HOST = import.meta.env.VITE_API_HOST;
     const navigate = useNavigate();
@@ -309,6 +311,17 @@ export default function Ticket() {
                         <Chip label={`สาขา: ${me.branch}`} size="small" />
                         <Chip label={`role: ${me.role}`} size="small" color={me.role === "admin" || me.role === "developer" ? "primary" : "default"} />
                         <Tooltip title="รีเฟรชข้อมูล"><IconButton onClick={refresh}><RefreshCw /></IconButton></Tooltip>
+                        {role === "admin" && (
+                            <Tooltip title="เพิ่มผู้ใช้งาน">
+                                <IconButton onClick={() => setAddUserOpen(true)}>
+                                    <UserPlus />
+                                </IconButton>
+                            </Tooltip>
+                        )}
+                        <AddUserDialog
+                            open={addUserOpen}
+                            onClose={() => setAddUserOpen(false)}
+                        />
                         <Avatar sx={{ width: 28, height: 28 }}>{(me.name || "U").slice(0, 1)}</Avatar>
                         <Tooltip title="ออกจากระบบ">
                             <IconButton onClick={handleLogout}><LogOut /></IconButton>
