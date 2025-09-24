@@ -65,7 +65,7 @@ export default function LoginPage() {
             sessionStorage.setItem("usvt_tel", u.u_tel || "");
 
             // ไปหน้า ticket
-            window.location.href = "/ticket";
+            window.location.href = "/";
         } catch (err) {
             setError(err.response?.data?.error || "Login failed");
         } finally {
