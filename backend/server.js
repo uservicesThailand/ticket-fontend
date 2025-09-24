@@ -234,7 +234,8 @@ const allowedOrigins = [
     "http://192.168.102.106:5173",
     "http://192.168.112.49:5173",
     "http://192.168.102.106:5173",
-    "http://192.168.102.103:5173"
+    "http://192.168.102.103:5173",
+    "https://ticket-uservices.azurewebsites.net"
     // ใส่ origin โปรดักชันจริงด้วย เช่น "https://jobsheet.u-services.co.th"
 ];
 
@@ -973,5 +974,6 @@ app.get("/api/issues/:id", requireAuthJWT, async (req, res) => {
         return res.status(500).json({ message: "Server error" });
     }
 });
+const PORT = process.env.PORT || 4000;
 
-app.listen(4000, () => console.log("Server running on port 4000"));
+app.listen(PORT, "0.0.0.0", () => console.log(`Server on ${PORT}`));
