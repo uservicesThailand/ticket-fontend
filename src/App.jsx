@@ -4,7 +4,7 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage.jsx";
-import Ticket from "./pages/ticket.jsx";
+import Ticket from "./pages/Ticket.jsx";
 // ✅ Route สำหรับเช็ค sessionStorage
 function ProtectedRoute({ children }) {
   const isLoggedIn = !!sessionStorage.getItem("usvt_user_key");
