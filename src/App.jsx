@@ -1,51 +1,55 @@
+// src/App.jsx
 import React, { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LoginPage from "./pages/LoginPage.jsx";
 import Ticket from "./pages/Ticket.jsx";
 
-function ProtectedRoute({ children, isLoggedIn }) {
-  return isLoggedIn ? children : <Navigate to="/login" replace />;
+function ProtectedRoute({ isLoggedIn, element }) {
+  // ถ้า login → แสดง element, ถ้าไม่ login → แสดง LoginPage
+  return isLoggedIn ? element : <LoginPage />;
 }
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(
-    !!sessionStorage.getItem("usvt_user_key")
+  const [isLoggedIn, setIsLoggedIn] = useState(() =>
+    Boolean(sessionStorage.getItem("usvt_user_key"))
   );
 
   useEffect(() => {
-    const handler = () => {
-      setIsLoggedIn(!!sessionStorage.getItem("usvt_user_key"));
-    };
-    window.addEventListener("storage", handler); // ฟังการเปลี่ยนจาก tab อื่น
+    const handler = () =>
+      setIsLoggedIn(Boolean(sessionStorage.getItem("usvt_user_key")));
+    window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
   }, []);
+
+  const handleLoggedIn = () => setIsLoggedIn(true);
 
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
-
-        <Route
-          path="/ticket"
-          element={
-            <ProtectedRoute isLoggedIn={isLoggedIn}>
-              <Ticket />
-            </ProtectedRoute>
-          }
-        />
-
+        {/* root: ถ้า login แล้วไป Ticket, ไม่งั้นไป Login */}
         <Route
           path="/"
           element={
-            isLoggedIn ? (
-              <Navigate to="/ticket" replace />
-            ) : (
-              <Navigate to="/login" replace />
-            )
+            isLoggedIn ? <Ticket /> : <LoginPage onLogin={handleLoggedIn} />
           }
         />
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* login route ตรงๆ */}
+        <Route
+          path="/login"
+          element={<LoginPage onLogin={handleLoggedIn} />}
+        />
+
+        {/* ticket route ปลอดภัย */}
+        <Route
+          path="/ticket"
+          element={
+            <ProtectedRoute isLoggedIn={isLoggedIn} element={<Ticket />} />
+          }
+        />
+
+        {/* fallback */}
+        <Route path="*" element={<LoginPage onLogin={handleLoggedIn} />} />
       </Routes>
     </BrowserRouter>
   );
