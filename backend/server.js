@@ -235,7 +235,7 @@ const allowedOrigins = [
     "http://192.168.112.49:5173",
     "http://192.168.102.106:5173",
     "http://192.168.102.103:5173",
-    "https://ticket-uservices.azurewebsites.net"
+    "https://happy-ground-05abfb200.1.azurestaticapps.net"
     // ใส่ origin โปรดักชันจริงด้วย เช่น "https://jobsheet.u-services.co.th"
 ];
 
